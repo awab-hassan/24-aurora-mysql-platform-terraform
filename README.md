@@ -45,39 +45,6 @@ The cluster lives inside a pre-existing VPC (`<your-vpc-id>`). A dedicated secur
 - **AWS services:** RDS Aurora MySQL, Application Auto Scaling, CloudWatch Alarms, CloudWatch Logs, EventBridge, Lambda (Python 3.9), S3, SNS, IAM, VPC/Security Groups, DB Subnet Groups
 - **Other:** Python 3.9 (boto3 1.26.137) for snapshot Lambda
 
-## Repository layout
-
-```
-AURORA-IMPLEMENTATION/
-├── terraform/              # Terraform Infrastructure as Code
-│   ├── main.tf             # Aurora cluster, instances, alarms
-│   ├── variables.tf        # Configuration with validation
-│   ├── outputs.tf          # Deployment outputs
-│   ├── autoscaling.tf      # Read replica scaling
-│   └── backup.tf           # S3, Lambda, EventBridge
-│
-├── lambda/                 # Python Lambda Functions
-│   ├── lambda_function.py  # Cluster snapshot handler (primary)
-│   ├── id.py               # Instance snapshot handler (alternative)
-│   ├── requirements.txt    # Python dependencies
-│   └── lambda_function.zip # Deployment package
-│
-├── docs/                   # Documentation
-│   ├── README.md           # This file
-│   ├── DEPLOYMENT_GUIDE.md # Deployment walkthrough
-│   ├── MAINTENANCE.md      # Operations guide
-│   └── GITHUB_SETUP.md     # GitHub push instructions
-│
-├── config/                 # Configuration
-│   └── terraform.tfvars.example # Variables template
-│
-├── .gitignore              # Git exclusion rules
-├── .github/workflows/      # GitHub Actions CI/CD
-│   └── terraform-validate.yml
-└── PROJECT_STRUCTURE.md    # Folder organization guide
-```
-
-See **PROJECT_STRUCTURE.md** for detailed folder documentation.
 
 ## How it works
 
@@ -99,29 +66,6 @@ See **PROJECT_STRUCTURE.md** for detailed folder documentation.
 - AWS account with permissions for: `rds:*`, `application-autoscaling:*`, `iam:CreateRole`/`CreatePolicy`/`AttachRolePolicy`, `lambda:*`, `events:*`, `s3:*`, `cloudwatch:PutMetricAlarm`, `sns:CreateTopic`, `ec2:*SecurityGroup*`, `ec2:*Subnet*`
 - An existing VPC with at least two private subnets in different AZs
 - Configured `terraform.tfvars` in `config/` folder (copy from `terraform.tfvars.example`)
-
-## Deployment
-
-```bash
-# 1. Configure your environment
-cd config/
-cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Fill in YOUR AWS details
-
-# 2. Copy tfvars to terraform folder
-cp terraform.tfvars ../terraform/
-
-# 3. Deploy infrastructure
-cd ../terraform/
-terraform init
-terraform plan
-terraform apply
-
-# 4. Verify deployment
-terraform output
-```
-
-For detailed deployment instructions, see **docs/DEPLOYMENT_GUIDE.md**.
 
 ## Teardown
 
