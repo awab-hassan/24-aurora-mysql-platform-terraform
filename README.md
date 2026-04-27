@@ -79,5 +79,5 @@ Note: the S3 snapshot bucket is versioned; empty it (`aws s3 rm s3://<bucket> --
 
 - Demonstrates: multi-AZ HA, application auto scaling for read replicas, scheduled serverless backup workflows, least-privilege Lambda IAM, and CloudWatch-based alerting.
 - All configuration is parameterized via `variables.tf` and `terraform.tfvars` — no hardcoded values in tracked files.
-- `rule.json` is sample WAF log output retained for reference when wiring WAF / ALB logging; it is not consumed by Terraform.
-- `id.py` is an alternate Lambda handler that snapshots at the instance level (`create_db_snapshot`) instead of the cluster level — kept for comparison.
+  
+
