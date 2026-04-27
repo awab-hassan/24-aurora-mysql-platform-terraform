@@ -1,0 +1,104 @@
+# ======================================================================
+# AURORA Implementation .gitignore
+# Derived from portfolio template with project-specific customizations
+# ======================================================================
+docs/
+# ------ Secrets / credentials (NEVER commit) ----------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+*accessKeys*.csv
+credentials
+credentials.csv
+.aws/
+.env
+.env.*
+!.env.example
+secrets.*
+*.secret
+
+# ------ Terraform (exclude state but include examples) ----------------
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!terraform.tfvars.example
+!example.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ------ CloudFormation / SAM -------------------------------------------
+packaged-template.yaml
+.aws-sam/
+
+# ------ Node.js --------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.yarn/
+package-lock.json.bak
+
+# ------ Python ---------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.pyc
+*.pyo
+
+# ------ Build artefacts / archives (except lambda_function.zip) -------
+dist/
+build/
+*.rar
+*.tar
+*.tar.gz
+*.7z
+# NOTE: lambda_function.zip is intentionally NOT ignored - it's part of deployment
+
+# ------ IDE / OS -------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ------ Logs -----------------------------------------------------------
+*.log
+logs/
+
+# ------ Database dumps (NEVER commit) ----------------------------------
+*.sql
+*.dump
+*.bak
+
+# ------ OS temporary files -----
+.DS_Store
+*~
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ------ Terraform plan files (but keep examples) -----
+plan.out
+*.tfplan
+!terraform.tfplan.example

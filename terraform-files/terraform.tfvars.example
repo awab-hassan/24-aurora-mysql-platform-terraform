@@ -1,0 +1,47 @@
+# ===================================================================
+# terraform.tfvars.example
+# ===================================================================
+# Copy this file to terraform.tfvars and fill in your actual values
+# IMPORTANT: terraform.tfvars is in .gitignore — NEVER commit it
+# ===================================================================
+
+aws_region = "xx-region-1"
+
+# Your existing VPC ID
+vpc_id = "xxx"
+
+# Private subnets in different AZs for HA
+private_subnet_ids = [
+  "subnet-xxx",  # xx-region-1
+  "subnet-xxx"   # xx-region-1
+]
+
+# Database configuration
+db_cluster_identifier      = "etc-prod-db"
+db_instance_identifier_1   = "etc-prod-db-instance-1"
+db_instance_identifier_2   = "etc-prod-db-instance-2"
+db_master_username         = "admin"
+db_master_password         = "ChangeMe!SecurePassword123"  # REQUIRED: Change this
+db_engine_version          = "5.7.mysql_aurora.2.11.5"
+db_instance_class          = "db.r5.large"
+database_name              = "etc_db"
+
+# Backup and maintenance
+backup_retention_period      = 7
+preferred_backup_window      = "04:00-04:30"
+preferred_maintenance_window = "Mon:06:00-Mon:06:30"
+
+# Snapshot configuration
+snapshot_bucket_name   = "aurora-snapshot-bucket-prod"
+snapshot_retention_days = 150
+
+# Lambda configuration
+lambda_timeout_seconds = 600
+
+# Common tags
+tags = {
+  Project     = "Aurora-Implementation"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+  CostCenter  = "Engineering"
+}
