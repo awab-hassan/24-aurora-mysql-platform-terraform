@@ -1,83 +1,98 @@
-# Aurora MySQL Production Platform on AWS
+# Project # 24 - aurora-mysql-platform-terraform
 
-This project provisions a production-grade **Amazon Aurora MySQL** database platform on AWS using Terraform. It stands up a multi-AZ Aurora cluster with two writer/reader instances, read-replica autoscaling driven by CloudWatch metrics, CloudWatch alarms wired to SNS for CPU and memory pressure, and a scheduled **AWS Lambda** snapshot pipeline that exports cluster snapshots to a versioned, lifecycle-managed S3 bucket every three hours. It exists to demonstrate end-to-end ownership of a managed relational database stack — deployment, observability, scaling, and backup/DR — expressed entirely as code.
-
-## Highlights
-
-- **Multi-AZ Aurora MySQL cluster** (engine `5.7.mysql_aurora.2.11.5`) with two `db.r5.large` instances split across `ap-northeast-1a` and `ap-northeast-1c`, storage encryption on, and error/general/slowquery logs shipped to CloudWatch.
-- **Application Auto Scaling** for read replicas using `TargetTrackingScaling` on `RDSReaderAverageCPUUtilization` (target 70%, min 1 / max 5, 5-minute cooldowns).
-- **Automated snapshot Lambda** triggered by an EventBridge rule every 3 hours; snapshots are created via the RDS API, waited on, and the snapshot metadata JSON is written to a versioned S3 bucket with a 150-day lifecycle expiration.
-- **CloudWatch alarms + SNS topic** for high CPU (>= 80%) and low freeable memory (<= 1 GB) on the cluster.
-- **Supporting Nginx bootstrap script** that registers the EC2 private IP as a `server_name` and installs `/health` and `/elb-status` endpoints — used on the web tier fronting the DB.
+Terraform module that provisions a multi-AZ Amazon Aurora MySQL cluster with read-replica autoscaling, CloudWatch alarms wired to SNS, and a scheduled Lambda snapshot pipeline that exports cluster snapshots to a versioned S3 bucket every three hours.
 
 ## Architecture
 
-Traffic flow and resource relationships:
-
 ```
-                          +-------------------------+
-                          |    EventBridge rule     |
-                          |  rate(3 hours)          |
-                          +-----------+-------------+
-                                      |
-                                      v
-       +------------------+   +-------+---------+   +--------------------+
-       |  CloudWatch      |   |  Lambda         |   |  S3 (versioned)    |
-       |  alarms + SNS    |<--+  snapshot       +-->|  aurora-snapshot-  |
-       |  (CPU, memory)   |   |  function       |   |  bucket-prod       |
-       +---------+--------+   +--------+--------+   +--------------------+
-                 ^                     |
-                 |                     v
-       +---------+---------------------+------------+
-       |        Aurora MySQL cluster                |
-       |   etc-prod-db (2 writers/readers)    |
-       |   SG: aurora-sg   Subnets: 2 private AZs   |
-       +---------+----------------------------------+
-                 |
-                 +--- Auto Scaling target (1-5 read replicas, 70% CPU)
+EventBridge (rate 3h)
+        |
+        v
+   Lambda snapshot function ----> S3 (versioned, 150-day lifecycle)
+                                  aurora-snapshot-bucket
+        ^
+        |
+   Aurora MySQL cluster (multi-AZ)
+   2x db.r5.large in ap-northeast-1a / ap-northeast-1c
+   Storage encrypted, error/general/slowquery logs to CloudWatch
+        |
+        +--- Application Auto Scaling target (1-5 read replicas, 70% CPU)
+        |
+        +--- CloudWatch alarms ---> SNS topic
+              CPU >= 80%             (subscribe email/Slack/PagerDuty)
+              Freeable memory <= 1 GB
 ```
 
-The cluster lives inside a pre-existing VPC (`<your-vpc-id>`). A dedicated security group (`aurora-sg`) and DB subnet group (`aurora-subnet-group`) bind it to two private subnets. The Lambda snapshot role has scoped IAM for `rds:CreateDBSnapshot`, `rds:DescribeDBSnapshots`, `rds:StartExportTask`, and `s3:PutObject` against the snapshot bucket only. Alarms publish to a single SNS topic that can be subscribed to Slack/email/PagerDuty out of band.
+The cluster lives inside an existing VPC. A dedicated security group (`aurora-sg`) and DB subnet group bind it to two private subnets across separate AZs. The Lambda snapshot role has scoped IAM permissions: `rds:CreateDBSnapshot`, `rds:DescribeDBSnapshots`, `rds:StartExportTask`, and `s3:PutObject` against the snapshot bucket only.
 
-## Tech stack
+## What It Provisions
 
-- **Terraform** 1.3+ (AWS provider ~> 5.0)
-- **AWS services:** RDS Aurora MySQL, Application Auto Scaling, CloudWatch Alarms, CloudWatch Logs, EventBridge, Lambda (Python 3.9), S3, SNS, IAM, VPC/Security Groups, DB Subnet Groups
-- **Other:** Python 3.9 (boto3 1.26.137) for snapshot Lambda
+- Aurora MySQL cluster (engine `5.7.mysql_aurora.2.11.5`) with two `db.r5.large` instances split across two AZs
+- DB subnet group spanning two private subnets, dedicated security group
+- Application Auto Scaling target on `RDSReaderAverageCPUUtilization` (target 70%, min 1, max 5, 5-minute cooldowns)
+- CloudWatch alarms for CPU and freeable memory, both publishing to a shared SNS topic
+- S3 bucket (versioned, 150-day lifecycle) for snapshot metadata
+- Lambda function (Python 3.9, 10-minute timeout) that creates cluster snapshots and writes metadata JSON to S3
+- EventBridge rule (`rate(3 hours)`) invoking the snapshot Lambda
 
+## Stack
 
-## How it works
+Terraform 1.3+ · AWS provider ~> 5.0 · RDS Aurora MySQL · Application Auto Scaling · CloudWatch · EventBridge · Lambda (Python 3.9) · S3 · SNS · IAM
 
-1. `terraform init && terraform apply` provisions, in order:
-   - the Aurora security group, DB subnet group, cluster, and two cluster instances in separate AZs;
-   - the Application Auto Scaling target and target-tracking policy for read replicas (1-5 instances based on CPU);
-   - the CloudWatch CPU and memory alarms and the shared SNS topic;
-   - the S3 snapshot bucket (versioned, 150-day expiration) and the IAM role/policy for the snapshot Lambda;
-   - the Lambda function (packaged from `lambda_function.zip` — rebuild from `lambda_function.py`) with a 10-minute timeout;
-   - the EventBridge rule (`rate(3 hours)`) and the `lambda:InvokeFunction` permission for EventBridge.
-2. Every 3 hours, EventBridge triggers the Lambda, which calls `create_db_cluster_snapshot`, waits for `db_cluster_snapshot_available`, then PUTs the snapshot metadata JSON to `s3://<snapshot-bucket>/snapshots/<cluster-id>-snapshot-<timestamp>.json`.
-3. CloudWatch alarms publish to SNS whenever CPU >= 80% or freeable memory <= 1 GB.
-4. On the web tier (outside this Terraform), `script.sh` runs at boot to append the EC2 private IP to the Nginx `server_name` and install `/health` and `/elb-status` probe endpoints.
+## Repository Layout
+
+```
+aurora-mysql-platform-terraform/
+├── main.tf
+├── variables.tf
+├── config/
+│   └── terraform.tfvars.example
+├── lambda/
+│   ├── lambda_function.py
+│   └── lambda_function.zip
+├── scripts/
+│   └── nginx-bootstrap.sh         # Web-tier helper, applied outside Terraform
+├── .gitignore
+└── README.md
+```
+
+## How It Works
+
+1. `terraform apply` provisions the cluster, autoscaling, alarms, snapshot bucket, snapshot Lambda, and the EventBridge schedule.
+2. Every 3 hours, EventBridge invokes the Lambda. The handler calls `create_db_cluster_snapshot`, waits on `db_cluster_snapshot_available`, then writes snapshot metadata JSON to `s3://<bucket>/snapshots/<cluster-id>-snapshot-<timestamp>.json`.
+3. CloudWatch alarms publish to SNS when CPU reaches 80% or freeable memory drops to 1 GB. SNS subscriptions (email, Slack, PagerDuty) are configured separately.
 
 ## Prerequisites
 
 - Terraform >= 1.3
-- AWS CLI configured (`aws configure`)
-- AWS account with permissions for: `rds:*`, `application-autoscaling:*`, `iam:CreateRole`/`CreatePolicy`/`AttachRolePolicy`, `lambda:*`, `events:*`, `s3:*`, `cloudwatch:PutMetricAlarm`, `sns:CreateTopic`, `ec2:*SecurityGroup*`, `ec2:*Subnet*`
+- AWS CLI configured
 - An existing VPC with at least two private subnets in different AZs
-- Configured `terraform.tfvars` in `config/` folder (copy from `terraform.tfvars.example`)
+- AWS credentials with permissions for: `rds:*`, `application-autoscaling:*`, `iam:CreateRole/CreatePolicy/AttachRolePolicy`, `lambda:*`, `events:*`, `s3:*`, `cloudwatch:PutMetricAlarm`, `sns:CreateTopic`, `ec2:*SecurityGroup*`, `ec2:*Subnet*`
+- Populate `config/terraform.tfvars` from the `.example` template before applying
+
+## Deployment
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
 
 ## Teardown
 
+The S3 snapshot bucket is versioned and must be emptied (including all object versions) before destroy:
+
 ```bash
+aws s3api delete-objects --bucket <bucket> \
+  --delete "$(aws s3api list-object-versions --bucket <bucket> \
+    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
+
 terraform destroy
 ```
 
-Note: the S3 snapshot bucket is versioned; empty it (`aws s3 rm s3://<bucket> --recursive` plus a version-aware cleanup) before destroy.
-
 ## Notes
 
-- Demonstrates: multi-AZ HA, application auto scaling for read replicas, scheduled serverless backup workflows, least-privilege Lambda IAM, and CloudWatch-based alerting.
-- All configuration is parameterized via `variables.tf` and `terraform.tfvars` — no hardcoded values in tracked files.
-  
-
+- Aurora MySQL 5.7 (`2.11.x` family) reached end of standard support in October 2024. New deployments should target Aurora MySQL 8.0; this module's engine version was pinned for compatibility with an existing application.
+- The Lambda is packaged from `lambda_function.zip`. Rebuild from `lambda_function.py` before applying if the source has changed.
+- The Nginx bootstrap script (`scripts/nginx-bootstrap.sh`) is applied to the web tier outside this Terraform module. It registers the EC2 private IP as an Nginx `server_name` and installs `/health` and `/elb-status` probe endpoints.
+- All configuration is parameterised via `variables.tf` and `terraform.tfvars`. No hardcoded values are tracked.
