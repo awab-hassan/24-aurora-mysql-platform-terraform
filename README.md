@@ -39,23 +39,6 @@ The cluster lives inside an existing VPC. A dedicated security group (`aurora-sg
 
 Terraform 1.3+ · AWS provider ~> 5.0 · RDS Aurora MySQL · Application Auto Scaling · CloudWatch · EventBridge · Lambda (Python 3.9) · S3 · SNS · IAM
 
-## Repository Layout
-
-```
-aurora-mysql-platform-terraform/
-├── main.tf
-├── variables.tf
-├── config/
-│   └── terraform.tfvars.example
-├── lambda/
-│   ├── lambda_function.py
-│   └── lambda_function.zip
-├── scripts/
-│   └── nginx-bootstrap.sh         # Web-tier helper, applied outside Terraform
-├── .gitignore
-└── README.md
-```
-
 ## How It Works
 
 1. `terraform apply` provisions the cluster, autoscaling, alarms, snapshot bucket, snapshot Lambda, and the EventBridge schedule.
