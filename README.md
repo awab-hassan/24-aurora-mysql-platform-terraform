@@ -1,6 +1,6 @@
 # Project # 24 - aurora-mysql-platform-terraform
 
-Terraform module that provisions a multi-AZ Amazon Aurora MySQL cluster with read-replica autoscaling, CloudWatch alarms wired to SNS, and a scheduled Lambda snapshot pipeline that exports cluster snapshots to a versioned S3 bucket every three hours.
+Terraform module that provisions a multi-AZ Amazon Aurora MySQL cluster with read-replica autoscaling, CloudWatch alarms wired to SNS, and a scheduled Lambda snapshot pipeline that exports cluster snapshots to a versioned S3 bucket every three hours. Basically it provisions a highly available Aurora MySQL cluster with auto-scaling read replicas, integrated SNS alerting, and a serverless, automated snapshot pipeline for disaster recovery.
 
 ## Architecture
 
