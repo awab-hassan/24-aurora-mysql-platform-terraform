@@ -3,25 +3,7 @@
 Terraform module that provisions a multi-AZ Amazon Aurora MySQL cluster with read-replica autoscaling, CloudWatch alarms wired to SNS, and a scheduled Lambda snapshot pipeline that exports cluster snapshots to a versioned S3 bucket every three hours. Basically it provisions a highly available Aurora MySQL cluster with auto-scaling read replicas, integrated SNS alerting, and a serverless, automated snapshot pipeline for disaster recovery.
 
 ## Architecture
-
-```
-EventBridge (rate 3h)
-        |
-        v
-   Lambda snapshot function ----> S3 (versioned, 150-day lifecycle)
-                                  aurora-snapshot-bucket
-        ^
-        |
-   Aurora MySQL cluster (multi-AZ)
-   2x db.r5.large in ap-northeast-1a / ap-northeast-1c
-   Storage encrypted, error/general/slowquery logs to CloudWatch
-        |
-        +--- Application Auto Scaling target (1-5 read replicas, 70% CPU)
-        |
-        +--- CloudWatch alarms ---> SNS topic
-              CPU >= 80%             (subscribe email/Slack/PagerDuty)
-              Freeable memory <= 1 GB
-```
+![Architecture Diagram](./architecture.png)
 
 The cluster lives inside an existing VPC. A dedicated security group (`aurora-sg`) and DB subnet group bind it to two private subnets across separate AZs. The Lambda snapshot role has scoped IAM permissions: `rds:CreateDBSnapshot`, `rds:DescribeDBSnapshots`, `rds:StartExportTask`, and `s3:PutObject` against the snapshot bucket only.
 
